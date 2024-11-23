@@ -1,7 +1,7 @@
 {
   "name": "messageworks",
   "type": "module",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "MessageWorks is a flexible framework for task orchestration, messaging, and workflow management across distributed systems. Simplify your processes with seamless communication and coordination.",
   "author": "Bahay Labs, LLC",
   "license": "Apache-2.0",
