@@ -7,13 +7,13 @@ import { Messenger } from '../types/messenger'
  * @param messenger The Messenger object
  * @returns An array of strings
  */
-export function asArray(messenger: Messenger): string[] {
+export function messengerAsArray(messenger: Messenger): string[] {
   if (Array.isArray(messenger)) {
     // If it's already an array, return it
-    return normalize(messenger) as string[]
+    return normalizeMessenger(messenger) as string[]
   } else {
     // If it's a string, split it into an array of strings
-    return (normalize(messenger) as string)
+    return (normalizeMessenger(messenger) as string)
       .split('/')
       .map((item) => item.trim())
       .filter(Boolean)
@@ -27,15 +27,15 @@ export function asArray(messenger: Messenger): string[] {
  * @param messenger The Messenger object
  * @returns A string representation of the Messenger object
  */
-export function asString(messenger: Messenger): string {
+export function messengerAsString(messenger: Messenger): string {
   if (typeof messenger === 'string') {
     // If it's already a string, return it
-    return '/' + (normalize(messenger) as string)
+    return '/' + (normalizeMessenger(messenger) as string)
   } else {
     // If it's an array, join the elements into a single string using '/' separator
     return (
       '/' +
-      (normalize(messenger) as string[])
+      (normalizeMessenger(messenger) as string[])
         .map((item) => item.trim())
         .filter(Boolean)
         .join('/')
@@ -51,7 +51,7 @@ export function asString(messenger: Messenger): string {
  * @param messenger The Messenger object (string or array)
  * @returns A normalized Messenger object (string or array)
  */
-export function normalize(messenger: Messenger): Messenger {
+export function normalizeMessenger(messenger: Messenger): Messenger {
   if (messenger === null || messenger === undefined) {
     throw new Error(`Invalid Messenger: ${messenger}`)
   }
@@ -89,14 +89,12 @@ export function normalize(messenger: Messenger): Messenger {
  * @returns {boolean} Returns `true` if both messengers are equal after converting them to strings,
  * otherwise returns `false`.
  */
-export function areEqual(messenger1: Messenger, messenger2: Messenger): boolean {
+export function messengersAreEqual(messenger1: Messenger, messenger2: Messenger): boolean {
   if (!messenger1 || !messenger2) {
-    console.log(`[UTILS] areEqual (${messenger1}) (${messenger2}) NOT TRUTHFUL: returning false`)
     return false
   }
 
-  console.log(`[UTILS] areEqual (${messenger1}) (${messenger2}) returning:`, asString(messenger1) === asString(messenger2))
-  return asString(messenger1) === asString(messenger2)
+  return messengerAsString(messenger1) === messengerAsString(messenger2)
 }
 
 /**
@@ -115,11 +113,11 @@ export function areEqual(messenger1: Messenger, messenger2: Messenger): boolean 
  * @param {Messenger} there The second Messenger to compare (the one being checked to see if it is upstream or downstream).
  * @returns {boolean} Returns `true` if `there` is upstream from `here`, otherwise returns `false`.
  */
-export function isUpstream(here: Messenger, there: Messenger): boolean {
-  const from = asArray(here)
+export function messengerIsUpstream(here: Messenger, there: Messenger): boolean {
+  const from = messengerAsArray(here)
   const fromLevel = from.length
 
-  const to = asArray(there)
+  const to = messengerAsArray(there)
   const toLevel = to.length
   
   if (toLevel < fromLevel) {

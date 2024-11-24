@@ -3,7 +3,12 @@ import { MessageType } from '../types/message-type'
 import { Messenger } from '../types/messenger'
 import { GeneralMessage } from '../models/general-message'
 import { ResponseMessage } from '../models/response-message'
-import { asString, areEqual, isUpstream } from '../utils'
+import {
+  messengerAsString,
+  messengersAreEqual,
+  messengerIsUpstream,
+  isWorkerThreads,
+} from '../utils'
 
 /**
  * A service for handling messaging between different workers and instances.
@@ -11,7 +16,7 @@ import { asString, areEqual, isUpstream } from '../utils'
  */
 export class MessagingService {
   private messenger: Messenger
-  private workers: Map<string, Worker> = new Map()
+  private workers: Map<string, any> = new Map()
   private workerListeners: Map<string, (event: MessageEvent) => void> = new Map()
   private responseHandlers: Map<UUIDTypes, (message: ResponseMessage<any>) => void> = new Map()
   private messageReceivedCallback: (message: GeneralMessage<any>) => void
@@ -43,7 +48,7 @@ export class MessagingService {
           }
         })
         .catch((err) => {
-          console.error('Failed to load worker_threads:', err)
+          console.error(`SERVICE[${this.messenger}] Failed to load worker_threads:`, err)
         })
     } else {
       // Browser or Web Worker environment logic
@@ -85,8 +90,8 @@ export class MessagingService {
    * @param {Messenger} messenger The messenger identifier for the worker.
    * @param {Worker} worker The worker to be added.
    */
-  public async addWorker(messenger: Messenger, worker: Worker) {
-    const workerKey = asString(messenger)
+  public async addWorker(messenger: Messenger, worker: any) {
+    const workerKey = messengerAsString(messenger)
 
     // If the worker or messenger is invalid, return early
     if (!messenger || !worker || !workerKey) {
@@ -100,8 +105,17 @@ export class MessagingService {
       this.handleMessage(message)
     }
 
-    // Add the listener to the worker
-    worker.addEventListener('message', workerListener)
+    if (this.workerThreads) {
+      const { parentPort } = this.workerThreads
+      if (parentPort) {
+        parentPort?.on('message', workerListener)
+      } else {
+        console.error(`SERVICE[${this.messenger}] parentPort is invalid.`)
+      }
+    } else {
+      // Add the listener to the web worker
+      worker.addEventListener('message', workerListener)
+    }
 
     // Store the worker and its listener in the service
     this.workers.set(workerKey, worker)
@@ -121,7 +135,14 @@ export class MessagingService {
 
       // Remove the worker's message listener if it exists
       if (workerListener) {
-        worker.removeEventListener('message', workerListener)
+        if (isWorkerThreads()) {
+          if (this.workerThreads) {
+            const { parentPort } = this.workerThreads
+            parentPort?.off('message', workerListener)
+          }
+        } else {
+          worker.removeEventListener('message', workerListener)
+        }
       }
 
       // Clean up the worker from the internal maps
@@ -160,7 +181,7 @@ export class MessagingService {
     // Determine where to send the message (worker, upstream, or other workers)
     if (worker) {
       destinations.push(worker.postMessage.bind(worker))
-    } else if (isUpstream(this.messenger, message.destination)) {
+    } else if (messengerIsUpstream(this.messenger, message.destination)) {
       destinations.push(postMessage.bind(this))
     } else {
       this.workers.forEach((worker) => {
@@ -169,7 +190,7 @@ export class MessagingService {
         } else {
           const workerMessenger = this.getWorkerKey(worker)
 
-          if (workerMessenger && areEqual(message.destination, workerMessenger)) {
+          if (workerMessenger && messengersAreEqual(message.destination, workerMessenger)) {
             destinations.push(worker.postMessage.bind(worker))
           }
         }
@@ -226,9 +247,9 @@ export class MessagingService {
   private handleMessage(message: GeneralMessage<any>) {
     console.log('[SERVICE] handleMessage message: ', message)
     console.log('[SERVICE] message.broadcast:', message.broadcast)
-    console.log('[SERVICE] areEqual():', areEqual(message.destination, this.messenger))
+    console.log('[SERVICE] areEqual():', messengersAreEqual(message.destination, this.messenger))
     console.log('[SERVICE] isResponse?:', message.type === MessageType.RESPONSE)
-    if (message.broadcast || areEqual(message.destination, this.messenger)) {
+    if (message.broadcast || messengersAreEqual(message.destination, this.messenger)) {
       console.log('[SERVICE] isBroadcast or intended destination:', message)
       // Handle broadcast or message for this instance
       if (message.type === MessageType.RESPONSE) {
@@ -263,7 +284,7 @@ export class MessagingService {
    */
   private forwardMessage(message: GeneralMessage<any>) {
     if (message.destination) {
-      if (isUpstream(this.messenger, message.destination)) {
+      if (messengerIsUpstream(this.messenger, message.destination)) {
         this.forwardUpstream(message)
       } else {
         this.forwardDownstream(message)
@@ -276,7 +297,15 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to forward upstream.
    */
   private forwardUpstream(message: GeneralMessage<any>) {
-    self.postMessage(message)
+    if (isWorkerThreads()) {
+      // In Worker Threads, use `parentPort.postMessage`
+      if (this.workerThreads?.parentPort) {
+        this.workerThreads.parentPort.postMessage(message)
+      }
+    } else {
+      // In Web Workers, use `self.postMessage`
+      self.postMessage(message)
+    }
   }
 
   /**
@@ -287,8 +316,17 @@ export class MessagingService {
     this.workers.forEach((worker) => {
       const workerMessenger = this.getWorkerMessenger(worker)
 
-      if (workerMessenger && areEqual(message.destination, workerMessenger)) {
-        worker.postMessage(message)
+      if (workerMessenger && messengersAreEqual(message.destination, workerMessenger)) {
+        if (isWorkerThreads()) {
+          // For Worker Threads, use `parentPort.postMessage`
+          const { parentPort } = worker
+          if (parentPort) {
+            parentPort.postMessage(message)
+          }
+        } else {
+          // For Web Workers, use `worker.postMessage`
+          worker.postMessage(message)
+        }
       }
     })
   }
@@ -298,7 +336,7 @@ export class MessagingService {
    * @param {Worker} worker The worker to get the messenger for.
    * @returns {Messenger | null} The worker's messenger identifier, or null if not found.
    */
-  private getWorkerMessenger(worker: Worker): Messenger | null {
+  private getWorkerMessenger(worker: any): Messenger | null {
     return this.getWorkerKey(worker)
   }
 
@@ -307,7 +345,7 @@ export class MessagingService {
    * @param {Worker} worker The worker to get the key for.
    * @returns {string | null} The worker's key, or null if not found.
    */
-  private getWorkerKey(worker: Worker): string | null {
+  private getWorkerKey(worker: any): string | null {
     return Array.from(this.workers.keys()).find((key) => this.workers.get(key) === worker) ?? null
   }
 }
