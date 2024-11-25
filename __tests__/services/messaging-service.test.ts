@@ -68,7 +68,7 @@ describe('MessagingService', () => {
   let rootMessenger: Messenger = ['root']
 
   it('should create an instance with the given messenger', () => {
-    const rootMessagingService = new MessagingService(rootMessenger)
+    const rootMessagingService = new MessagingService(rootMessenger, (message) => {})
     expect(rootMessagingService).toBeInstanceOf(MessagingService)
     expect(rootMessagingService['messenger']).toBe(rootMessenger)
   })
@@ -114,7 +114,7 @@ describe('MessagingService', () => {
     const worker = new WorkerMock(URL.createObjectURL(new Blob([workerScript])))
 
     // Add and then remove the worker
-    const messagingService = new MessagingService(rootMessenger)
+    const messagingService = new MessagingService(rootMessenger, (message) => {})
     messagingService.addWorker(workerMessenger, worker)
     messagingService.removeWorker(workerMessenger)
 
@@ -152,7 +152,7 @@ describe('MessagingService', () => {
     const workerScript = createResponseWorkerScript(workerMessenger)
     const worker = new WorkerMock(URL.createObjectURL(new Blob([workerScript])))
 
-    const messagingService = new MessagingService(rootMessenger)
+    const messagingService = new MessagingService(rootMessenger, (message) => {})
 
     // Add worker and try removing it
     messagingService.addWorker(workerMessenger, worker)
