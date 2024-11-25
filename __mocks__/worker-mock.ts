@@ -29,6 +29,7 @@ export class WorkerMock {
       onmessageerror: null,
       onerror: null,
       testVar: null,
+      terminated: false,
       postMessage: (data: any) => {
         console.log('[WORKER-INSIDE] Post Message to Outside - data: ', data)
         // worker thread calls postMessage -> calls mainThreadEmitter('message')

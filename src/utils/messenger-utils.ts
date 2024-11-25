@@ -140,8 +140,8 @@ export function messengerIsUpstream(here: Messenger, there: Messenger): boolean 
   }
 
   if (fromLevel === toLevel) {
-    console.log(`SERVICE[messengerIsUpstream] UPSTREAM: "${from}" !== "${to}"`)
-    return true
+    console.log(`SERVICE[messengerIsUpstream] EQUAL: "${from}" === "${to}"`)
+    return false
   }
 
   console.log(`SERVICE[messengerIsUpstream] DOWNSTREAM: "${from}" -> "${to}"`)
