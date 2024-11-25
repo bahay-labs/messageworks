@@ -43,7 +43,7 @@ describe('GeneralMessage, RequestMessage, and ResponseMessage with Extensions', 
     it('should allow extension and customization of GeneralMessage', () => {
       const destination: Messenger = ['destination']
       const concreteMessage = new ConcreteGeneralMessage('TestMessage', destination)
-      
+
       concreteMessage.setBroadcast(true)
 
       expect(concreteMessage.broadcast).toBe(true)
@@ -54,7 +54,7 @@ describe('GeneralMessage, RequestMessage, and ResponseMessage with Extensions', 
     it('should have access to all GeneralMessage getters', () => {
       const destination: Messenger = ['destination']
       const concreteMessage = new ConcreteGeneralMessage('TestMessage', destination)
-      
+
       expect(concreteMessage.type).toBe(MessageType.GENERAL)
       expect(concreteMessage.source).toEqual([])
     })
@@ -65,18 +65,18 @@ describe('GeneralMessage, RequestMessage, and ResponseMessage with Extensions', 
     it('should allow extension and customization of RequestMessage', () => {
       const destination: Messenger = ['system', 'destination']
       const concreteRequest = new ConcreteRequestMessage('RequestMessage', destination)
-      
+
       concreteRequest.setCustomData('customData')
 
       expect(concreteRequest.type).toBe(MessageType.REQUEST)
       expect(concreteRequest.data).toEqual({ custom: 'customData' })
-      expect(concreteRequest.destination).toEqual(['system','destination'])
+      expect(concreteRequest.destination).toEqual(['system', 'destination'])
     })
 
     it('should have access to all RequestMessage methods', () => {
       const destination: Messenger = ['destination']
       const concreteRequest = new ConcreteRequestMessage('RequestMessage', destination)
-      
+
       expect(concreteRequest.type).toBe(MessageType.REQUEST)
       expect(concreteRequest.name).toBe('RequestMessage')
     })
@@ -113,7 +113,7 @@ describe('GeneralMessage, RequestMessage, and ResponseMessage with Extensions', 
     it('should handle missing data in extended GeneralMessage', () => {
       const destination: Messenger = ['destination']
       const concreteMessage = new ConcreteGeneralMessage('TestMessage', destination)
-      
+
       expect(concreteMessage.data).toBeUndefined()
     })
 
@@ -126,7 +126,7 @@ describe('GeneralMessage, RequestMessage, and ResponseMessage with Extensions', 
       const destination: Messenger = ['destination']
       const requestMessage = new ConcreteRequestMessage('RequestMessage', destination)
       const concreteResponse = new ConcreteResponseMessage('ResponseMessage', requestMessage, null)
-      
+
       expect(concreteResponse.data).toBeNull()
     })
   })

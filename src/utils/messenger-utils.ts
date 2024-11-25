@@ -55,7 +55,7 @@ export function normalizeMessenger(messenger: Messenger): Messenger {
   if (messenger === null || messenger === undefined) {
     throw new Error(`Invalid Messenger: ${messenger}`)
   }
-  
+
   if (Array.isArray(messenger)) {
     return messenger
       .map((item) => item.trim()) // Trim each element in the array
@@ -119,7 +119,7 @@ export function messengerIsUpstream(here: Messenger, there: Messenger): boolean 
 
   const to = messengerAsArray(there)
   const toLevel = to.length
-  
+
   if (toLevel < fromLevel) {
     return true
   }
