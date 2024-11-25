@@ -4,7 +4,7 @@ import { Messenger } from '../types/messenger'
 /**
  * Represents a general message in the messaging system.
  * This class can be extended to create more specific types of messages (e.g., start, stop, status).
- * 
+ *
  * @template T The type of data that this message may contain. Can be any type or undefined if no data is provided.
  */
 export class GeneralMessage<T> {
@@ -52,7 +52,7 @@ export class GeneralMessage<T> {
 
   /**
    * Creates an instance of the GeneralMessage.
-   * 
+   *
    * @param name The name of the message.
    * @param destination The destination of the message (can be in string or string[] format).
    * @param data Optional data that the message may contain.
@@ -65,7 +65,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the unique identifier of the message.
-   * 
+   *
    * @returns {any} The unique identifier for this message.
    */
   public get id(): any {
@@ -74,7 +74,7 @@ export class GeneralMessage<T> {
 
   /**
    * Sets the unique identifier for the message.
-   * 
+   *
    * @param id The unique identifier to be set for this message.
    */
   public set id(id: any) {
@@ -83,7 +83,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the name of the message.
-   * 
+   *
    * @returns {string} The name of the message.
    */
   public get name(): string {
@@ -92,7 +92,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the type of the message (e.g., GENERAL, REQUEST, RESPONSE).
-   * 
+   *
    * @returns {MessageType} The type of the message.
    */
   public get type(): MessageType {
@@ -101,7 +101,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets whether the message is a broadcast message.
-   * 
+   *
    * @returns {boolean} True if the message is a broadcast, false otherwise.
    */
   public get broadcast(): boolean {
@@ -110,7 +110,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the source of the message.
-   * 
+   *
    * @returns {Messenger} The source of the message.
    */
   public get source(): Messenger {
@@ -119,7 +119,7 @@ export class GeneralMessage<T> {
 
   /**
    * Sets the source of the message.
-   * 
+   *
    * @param source The source to be set for this message.
    */
   public set source(source: Messenger) {
@@ -128,7 +128,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the destination of the message.
-   * 
+   *
    * @returns {Messenger} The destination of the message.
    */
   public get destination(): Messenger {
@@ -137,7 +137,7 @@ export class GeneralMessage<T> {
 
   /**
    * Sets the destination of the message.
-   * 
+   *
    * @param destination The destination to be set for this message.
    */
   public set destination(destination: Messenger) {
@@ -146,7 +146,7 @@ export class GeneralMessage<T> {
 
   /**
    * Gets the data associated with the message.
-   * 
+   *
    * @returns {T | undefined} The data of the message, or undefined if no data is present.
    */
   public get data(): T | undefined {
@@ -155,7 +155,7 @@ export class GeneralMessage<T> {
 
   /**
    * Sets the data associated with the message.
-   * 
+   *
    * @param data The data to be set for this message.
    */
   public set data(data: T) {

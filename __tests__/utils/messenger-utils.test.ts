@@ -1,4 +1,10 @@
-import { messengerAsArray, messengerAsString, normalizeMessenger, messengersAreEqual, messengerIsUpstream } from '../../src/utils/messenger-utils'
+import {
+  messengerAsArray,
+  messengerAsString,
+  normalizeMessenger,
+  messengersAreEqual,
+  messengerIsUpstream,
+} from '../../src/utils/messenger-utils'
 import { Messenger } from '../../src/types/messenger'
 
 describe('Messenger Utils', () => {
@@ -8,11 +14,19 @@ describe('Messenger Utils', () => {
     })
 
     it('should return array as is', () => {
-      expect(messengerAsArray(['earth', 'continent', 'country'])).toEqual(['earth', 'continent', 'country'])
+      expect(messengerAsArray(['earth', 'continent', 'country'])).toEqual([
+        'earth',
+        'continent',
+        'country',
+      ])
     })
 
     it('should normalize and return a clean array from string', () => {
-      expect(messengerAsArray('  /earth///continent/country// ')).toEqual(['earth', 'continent', 'country'])
+      expect(messengerAsArray('  /earth///continent/country// ')).toEqual([
+        'earth',
+        'continent',
+        'country',
+      ])
     })
 
     it('should handle empty string input', () => {
@@ -38,7 +52,9 @@ describe('Messenger Utils', () => {
     })
 
     it('should normalize and return a clean string from array', () => {
-      expect(messengerAsString(['  earth', 'continent  ', ' country '])).toBe('/earth/continent/country')
+      expect(messengerAsString(['  earth', 'continent  ', ' country '])).toBe(
+        '/earth/continent/country'
+      )
     })
 
     it('should handle empty array input', () => {
@@ -72,7 +88,9 @@ describe('Messenger Utils', () => {
     })
 
     it('should collapse multiple slashes into one', () => {
-      expect(normalizeMessenger('///earth///continent///country///')).toBe('earth/continent/country')
+      expect(normalizeMessenger('///earth///continent///country///')).toBe(
+        'earth/continent/country'
+      )
     })
 
     it('should handle empty segments in strings', () => {
@@ -96,11 +114,11 @@ describe('Messenger Utils', () => {
     })
 
     it('should not throw an error for valid messengers (including empty strings or arrays)', () => {
-      expect(normalizeMessenger('')).toBe('');  // Empty string is valid
-      expect(normalizeMessenger([])).toEqual([]);  // Empty array is valid
-      expect(normalizeMessenger('some valid value')).toBe('some valid value');  // Regular string is valid
-      expect(normalizeMessenger(['workflow1', 'step1'])).toEqual(['workflow1', 'step1']);  // Regular array is valid
-    });
+      expect(normalizeMessenger('')).toBe('') // Empty string is valid
+      expect(normalizeMessenger([])).toEqual([]) // Empty array is valid
+      expect(normalizeMessenger('some valid value')).toBe('some valid value') // Regular string is valid
+      expect(normalizeMessenger(['workflow1', 'step1'])).toEqual(['workflow1', 'step1']) // Regular array is valid
+    })
   })
 
   describe('areEqual', () => {

@@ -116,7 +116,7 @@ describe('MessagingService', () => {
     // Add and then remove the worker
     const messagingService = new MessagingService(rootMessenger)
     messagingService.addWorker(workerMessenger, worker)
-    messagingService.removeWorker(worker)
+    messagingService.removeWorker(workerMessenger)
 
     // Verify worker is removed
     expect(messagingService['workers'].size).toBe(0)
@@ -147,7 +147,6 @@ describe('MessagingService', () => {
     expect(rootCallback).not.toHaveBeenCalled()
   })
 
-  
   it('should handle invalid worker removal gracefully', () => {
     const workerMessenger = '/root/echo-worker'
     const workerScript = createResponseWorkerScript(workerMessenger)
@@ -157,10 +156,9 @@ describe('MessagingService', () => {
 
     // Add worker and try removing it
     messagingService.addWorker(workerMessenger, worker)
-    messagingService.removeWorker(worker)
+    messagingService.removeWorker(workerMessenger)
 
     // Attempt to remove the same worker again (should not throw or cause issues)
-    expect(() => messagingService.removeWorker(worker)).not.toThrow()
+    expect(() => messagingService.removeWorker(workerMessenger)).not.toThrow()
   })
-
 })

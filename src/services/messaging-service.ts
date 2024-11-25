@@ -39,11 +39,7 @@ export class MessagingService {
       import('worker_threads')
         .then((module) => {
           this.workerThreads = module
-          if (this.workerThreads?.isMainThread) {
-            // Node.js main thread logic
-            this.setupMainThreadListener()
-          } else {
-            // Node.js worker thread logic
+          if (!this.workerThreads?.isMainThread) {
             this.setupWorkerThreadListener()
           }
         })
@@ -56,18 +52,8 @@ export class MessagingService {
     }
   }
 
-  private setupMainThreadListener() {
-    console.log('[SERVICE] setupMainThreadListener')
-    if (this.workerThreads) {
-      const { parentPort } = this.workerThreads
-      parentPort?.on('message', (message: GeneralMessage<any>) => {
-        this.handleMessage(message)
-      })
-    }
-  }
-
   private setupWorkerThreadListener() {
-    console.log('[SERVICE] setupWorkerThreadListener')
+    console.log(`SERVICE[${this.messenger}] setupWorkerThreadListener`)
     if (this.workerThreads) {
       const { parentPort } = this.workerThreads
       parentPort?.on('message', (message: GeneralMessage<any>) => {
@@ -77,7 +63,7 @@ export class MessagingService {
   }
 
   private setupWebWorkerListener() {
-    console.log('[SERVICE] setupWebWorkerListener')
+    console.log(`SERVICE[${this.messenger}] setupWebWorkerListener`)
     if (typeof self !== 'undefined' && self.addEventListener) {
       self.addEventListener('message', (event) => {
         this.handleMessage(event.data)
@@ -100,17 +86,17 @@ export class MessagingService {
 
     // Create a listener to handle messages from the worker
     const workerListener = (event: MessageEvent) => {
-      console.log('[SERVICE] workerListener - message from worker:', event)
+      console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, event)
       const message: GeneralMessage<any> = event.data
       this.handleMessage(message)
     }
 
     if (this.workerThreads) {
-      const { parentPort } = this.workerThreads
+      const { parentPort } = worker
       if (parentPort) {
         parentPort?.on('message', workerListener)
       } else {
-        console.error(`SERVICE[${this.messenger}] parentPort is invalid.`)
+        console.error(`SERVICE[${this.messenger}] "${messenger}".parentPort is invalid.`)
       }
     } else {
       // Add the listener to the web worker
@@ -120,24 +106,25 @@ export class MessagingService {
     // Store the worker and its listener in the service
     this.workers.set(workerKey, worker)
     this.workerListeners.set(workerKey, workerListener)
-    console.log('[SERVICE] worker added')
+    console.log(`SERVICE[${this.messenger}] "${messenger}" worker added.`)
   }
 
   /**
    * Removes a worker from the service and cleans up associated resources.
    * @param {Worker} worker The worker to be removed.
    */
-  public removeWorker(worker: Worker): void {
-    const workerKey = this.getWorkerKey(worker)
+  public removeWorker(messenger: Messenger): void {
+    const workerKey = messengerAsString(messenger)
 
     if (workerKey) {
+      const worker = this.workers.get(workerKey)
       const workerListener = this.workerListeners.get(workerKey)
 
       // Remove the worker's message listener if it exists
       if (workerListener) {
         if (isWorkerThreads()) {
           if (this.workerThreads) {
-            const { parentPort } = this.workerThreads
+            const { parentPort } = worker
             parentPort?.off('message', workerListener)
           }
         } else {
@@ -148,6 +135,7 @@ export class MessagingService {
       // Clean up the worker from the internal maps
       this.workerListeners.delete(workerKey)
       this.workers.delete(workerKey)
+      console.log(`SERVICE[${this.messenger}] "${messenger}" worker removed.`)
     }
   }
 
@@ -156,7 +144,7 @@ export class MessagingService {
    */
   public cleanUp(): void {
     // Remove all workers
-    this.workers.forEach((worker) => this.removeWorker(worker))
+    this.workers.forEach((worker, key) => this.removeWorker(key))
 
     // Clear internal maps
     this.workerListeners.clear()
@@ -174,7 +162,7 @@ export class MessagingService {
    */
   public async sendMessage<T>(
     message: GeneralMessage<T>,
-    worker?: Worker
+    worker?: any
   ): Promise<ResponseMessage<T> | null> {
     const destinations: ((message: GeneralMessage<T>) => void)[] = []
 
@@ -184,13 +172,11 @@ export class MessagingService {
     } else if (messengerIsUpstream(this.messenger, message.destination)) {
       destinations.push(postMessage.bind(this))
     } else {
-      this.workers.forEach((worker) => {
+      this.workers.forEach((worker, key) => {
         if (message.broadcast) {
           destinations.push(worker.postMessage.bind(worker))
         } else {
-          const workerMessenger = this.getWorkerKey(worker)
-
-          if (workerMessenger && messengersAreEqual(message.destination, workerMessenger)) {
+          if (messengersAreEqual(message.destination, key)) {
             destinations.push(worker.postMessage.bind(worker))
           }
         }
@@ -200,29 +186,31 @@ export class MessagingService {
     // If destinations are found, send the message
     if (destinations.length > 0) {
       const sendMessagePromises = destinations.map((destination) => {
-        //destinations.forEach((destination) => {
         message.source = this.messenger
         message.id = generateUUID()
 
-        // If the message is a request, handle the response
+        // If the message is a request, setup the response handle
         if (message.type === MessageType.REQUEST) {
           return new Promise<ResponseMessage<T>>((resolve, reject) => {
             const responseHandler = (responseMessage: ResponseMessage<T>) => {
-              console.log('[SERVICE] responseHandler responseMessage:', responseMessage)
+              console.log(
+                `SERVICE[${this.messenger}] responseHandler responseMessage:`,
+                responseMessage
+              )
               // Resolve the promise with the correct response message
               if (responseMessage.requestId === message.id) {
                 this.responseHandlers.delete(responseMessage.requestId)
-                console.log('[SERVICE] responseHandler resolving')
+                console.log(`SERVICE[${this.messenger}] responseHandler resolving`)
                 resolve(responseMessage)
               } else {
-                console.log('[SERVICE] responseHandler NOT RESOLVED')
+                console.log(`SERVICE[${this.messenger}] responseHandler NOT RESOLVED`)
               }
             }
 
             this.responseHandlers.set(message.id, responseHandler)
             destination(message)
           }).then((responseMessage) => {
-            console.log('[SERVICE] responseHandler then:', responseMessage)
+            console.log(`SERVICE[${this.messenger}] responseHandler then:`, responseMessage)
             return responseMessage
           })
         } else {
@@ -245,12 +233,16 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to handle.
    */
   private handleMessage(message: GeneralMessage<any>) {
-    console.log('[SERVICE] handleMessage message: ', message)
-    console.log('[SERVICE] message.broadcast:', message.broadcast)
-    console.log('[SERVICE] areEqual():', messengersAreEqual(message.destination, this.messenger))
-    console.log('[SERVICE] isResponse?:', message.type === MessageType.RESPONSE)
+    console.log(`SERVICE[${this.messenger}] handleMessage message:`, message)
+    console.log(`SERVICE[${this.messenger}] message.broadcast:`, message.broadcast)
+    console.log(
+      `SERVICE[${this.messenger}] areEqual():`,
+      messengersAreEqual(message.destination, this.messenger)
+    )
+    console.log(`SERVICE[${this.messenger}] isResponse?:`, message.type === MessageType.RESPONSE)
+
     if (message.broadcast || messengersAreEqual(message.destination, this.messenger)) {
-      console.log('[SERVICE] isBroadcast or intended destination:', message)
+      console.log(`SERVICE[${this.messenger}] isBroadcast or intended destination:`, message)
       // Handle broadcast or message for this instance
       if (message.type === MessageType.RESPONSE) {
         const responseHandler = this.responseHandlers.get(
@@ -258,22 +250,21 @@ export class MessagingService {
         )
         if (responseHandler) {
           console.log(
-            `[SERVICE] calling responseHandler requestId[${
+            `SERVICE[${this.messenger}] calling responseHandler requestId[${
               (message as ResponseMessage<any>).requestId
-            }]:`,
-            responseHandler
+            }].`
           )
           responseHandler(message as ResponseMessage<any>)
         } else {
-          console.log('[SERVICE] responseHandler is not truthful')
+          console.log(`SERVICE[${this.messenger}] responseHandler is not truthful.`)
         }
       } else {
-        console.log('[SERVICE] NOT A Response:', message)
+        console.log(`SERVICE[${this.messenger}] NOT A Response:`, message)
         this.messageReceivedCallback(message)
       }
     } else {
       // Forward the message if it isn't for this instance
-      console.log('[SERVICE] Forwarding:', message)
+      console.log(`SERVICE[${this.messenger}] Forwarding:`, message)
       this.forwardMessage(message)
     }
   }
@@ -313,12 +304,10 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to forward downstream.
    */
   private forwardDownstream(message: GeneralMessage<any>) {
-    this.workers.forEach((worker) => {
-      const workerMessenger = this.getWorkerMessenger(worker)
-
-      if (workerMessenger && messengersAreEqual(message.destination, workerMessenger)) {
+    this.workers.forEach((worker, key) => {
+      if (messengersAreEqual(message.destination, key)) {
         if (isWorkerThreads()) {
-          // For Worker Threads, use `parentPort.postMessage`
+          // For Worker Threads, use `worker.parentPort.postMessage`
           const { parentPort } = worker
           if (parentPort) {
             parentPort.postMessage(message)
@@ -329,23 +318,5 @@ export class MessagingService {
         }
       }
     })
-  }
-
-  /**
-   * Retrieves the messenger identifier for a worker.
-   * @param {Worker} worker The worker to get the messenger for.
-   * @returns {Messenger | null} The worker's messenger identifier, or null if not found.
-   */
-  private getWorkerMessenger(worker: any): Messenger | null {
-    return this.getWorkerKey(worker)
-  }
-
-  /**
-   * Retrieves the key for a worker from the internal workers map.
-   * @param {Worker} worker The worker to get the key for.
-   * @returns {string | null} The worker's key, or null if not found.
-   */
-  private getWorkerKey(worker: any): string | null {
-    return Array.from(this.workers.keys()).find((key) => this.workers.get(key) === worker) ?? null
   }
 }
