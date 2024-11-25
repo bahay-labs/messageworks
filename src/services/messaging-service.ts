@@ -163,32 +163,53 @@ export class MessagingService {
     message: GeneralMessage<T>,
     worker?: any
   ): Promise<ResponseMessage<T> | null> {
+    console.log(`SERVICE[${this.messenger}] send message received:`, message)
+
     const destinations: ((message: GeneralMessage<T>) => void)[] = []
 
     // Determine where to send the message (worker, upstream, or other workers)
     if (worker) {
+      console.log(
+        `SERVICE[${this.messenger}] sending message directly to worker "${message.destination}".`
+      )
       destinations.push(worker.postMessage.bind(worker))
     } else if (messengerIsUpstream(this.messenger, message.destination)) {
-      console.log(`SERVICE[${this.messenger}] sending message upstream to "${message.destination}":`, message)
+      console.log(
+        `SERVICE[${this.messenger}] sending message upstream to "${message.destination}":`,
+        message
+      )
       if (this.workerThreads) {
         if (this.workerThreads.parentPort) {
-          console.log(`SERVICE[${this.messenger}] using parent port to send to "${message.destination}".`)
+          console.log(
+            `SERVICE[${this.messenger}] using parent port to send to "${message.destination}".`
+          )
           destinations.push(this.workerThreads.parentPort.postMessage.bind(this))
         } else {
-          console.error(`SERVICE[${this.messenger}] no parent port to send to "${message.destination}".`)
+          console.error(
+            `SERVICE[${this.messenger}] no parent port to send to "${message.destination}".`
+          )
         }
       } else if (typeof self !== 'undefined' && self) {
         console.log(`SERVICE[${this.messenger}] using self to send to "${message.destination}".`)
         destinations.push(self.postMessage.bind(this))
       } else {
-        console.error(`SERVICE[${this.messenger}] no postMessage available to send to "${message.destination}".`)
+        console.error(
+          `SERVICE[${this.messenger}] no postMessage available to send to "${message.destination}".`
+        )
       }
     } else {
+      console.log(`SERVICE[${this.messenger}] looking worker "${message.destination}".`)
       this.workers.forEach((worker, key) => {
         if (message.broadcast) {
+          console.log(
+            `SERVICE[${this.messenger}] broadcasting message to worker "${message.destination}".`
+          )
           destinations.push(worker.postMessage.bind(worker))
         } else {
           if (messengersAreEqual(message.destination, key)) {
+            console.log(
+              `SERVICE[${this.messenger}] sending message directly to worker "${message.destination}".`
+            )
             destinations.push(worker.postMessage.bind(worker))
           }
         }
@@ -220,6 +241,10 @@ export class MessagingService {
             }
 
             this.responseHandlers.set(message.id, responseHandler)
+
+            console.log(
+              `SERVICE[${this.messenger}] postMessage for request message "${message.destination}".`
+            )
             destination(message)
           }).then((responseMessage) => {
             console.log(`SERVICE[${this.messenger}] responseHandler then:`, responseMessage)
@@ -227,6 +252,9 @@ export class MessagingService {
           })
         } else {
           // If it's not a request, just send the message without expecting a response
+          console.log(
+            `SERVICE[${this.messenger}] postMessage for non-request message "${message.destination}".`
+          )
           destination(message)
           return Promise.resolve(null)
         }
