@@ -169,10 +169,19 @@ export class MessagingService {
     if (worker) {
       destinations.push(worker.postMessage.bind(worker))
     } else if (messengerIsUpstream(this.messenger, message.destination)) {
-      if (this.workerThreads?.parentPort) {
-        destinations.push(this.workerThreads.parentPort.postMessage.bind(this))
-      } else {
+      console.log(`SERVICE[${this.messenger}] sending message upstream to "${message.destination}":`, message)
+      if (this.workerThreads) {
+        if (this.workerThreads.parentPort) {
+          console.log(`SERVICE[${this.messenger}] using parent port to send to "${message.destination}".`)
+          destinations.push(this.workerThreads.parentPort.postMessage.bind(this))
+        } else {
+          console.error(`SERVICE[${this.messenger}] no parent port to send to "${message.destination}".`)
+        }
+      } else if (typeof self !== 'undefined' && self) {
+        console.log(`SERVICE[${this.messenger}] using self to send to "${message.destination}".`)
         destinations.push(self.postMessage.bind(this))
+      } else {
+        console.error(`SERVICE[${this.messenger}] no postMessage available to send to "${message.destination}".`)
       }
     } else {
       this.workers.forEach((worker, key) => {
