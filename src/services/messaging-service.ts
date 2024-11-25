@@ -60,8 +60,9 @@ export class MessagingService {
     console.log(`SERVICE[${this.messenger}] setupWorkerThreadListener`)
     if (this.workerThreads) {
       const { parentPort } = this.workerThreads
-      parentPort?.on('message', (message: GeneralMessage<any>) => {
-        this.handleMessage(message)
+      parentPort?.on('message', (message) => {
+        console.log(`SERVICE[${this.messenger}] worker listener message:`, message)
+        this.handleMessage(message as GeneralMessage<any>)
       })
     }
   }
@@ -70,7 +71,8 @@ export class MessagingService {
     console.log(`SERVICE[${this.messenger}] setupWebWorkerListener`)
     if (typeof self !== 'undefined' && self.addEventListener) {
       self.addEventListener('message', (event) => {
-        this.handleMessage(event.data)
+        console.log(`SERVICE[${this.messenger}] worker listener message:`, event.data)
+        this.handleMessage(event.data as GeneralMessage<any>)
       })
     }
   }
@@ -91,8 +93,7 @@ export class MessagingService {
     // Create a listener to handle messages from the worker
     const workerListener = (event: MessageEvent) => {
       console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, event)
-      const message: GeneralMessage<any> = event.data
-      this.handleMessage(message)
+      this.handleMessage(event.data as GeneralMessage<any>)
     }
 
     if (this.workerThreads) {
