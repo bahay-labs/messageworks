@@ -31,7 +31,7 @@ const config = [
       },
     ],
     external: ['uuid', 'worker_threads'],
-    plugins: [resolve(), commonjs(), typescript({ tsconfig: './tsconfig.json' }), terser()],
+    plugins: [resolve(), commonjs(), typescript({ tsconfig: './tsconfig.json' })],
   },
 
   {
