@@ -166,7 +166,11 @@ export class MessagingService {
     if (worker) {
       destinations.push(worker.postMessage.bind(worker))
     } else if (messengerIsUpstream(this.messenger, message.destination)) {
-      destinations.push(postMessage.bind(this))
+      if (this.workerThreads?.parentPort) {
+        destinations.push(this.workerThreads.parentPort.postMessage.bind(this))
+      } else {
+        destinations.push(self.postMessage.bind(this))
+      }
     } else {
       this.workers.forEach((worker, key) => {
         if (message.broadcast) {
