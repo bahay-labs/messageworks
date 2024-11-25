@@ -81,7 +81,6 @@ export class MessagingService {
    * @param {Worker} worker The worker to be added.
    */
   public async addWorker(messenger: Messenger, worker: any) {
-    console.log(`SERVICE[${this.messenger}] add worker "${messenger}":`, worker)
     const workerKey = messengerAsString(messenger)
 
     // If the worker or messenger is invalid, return early
@@ -97,8 +96,10 @@ export class MessagingService {
     }
 
     if (this.workerThreads) {
+      console.log(`SERVICE[${this.messenger}] listening to "${messenger}" worker thread.`)
       worker.on('message', workerListener)
     } else {
+      console.log(`SERVICE[${this.messenger}] listening to "${messenger}" web worker.`)
       worker.addEventListener('message', workerListener)
     }
 
@@ -122,8 +123,10 @@ export class MessagingService {
       // Remove the worker's message listener if it exists
       if (workerListener) {
         if (this.workerThreads) {
+          console.log(`SERVICE[${this.messenger}] removing "${messenger}" worker thread listener.`)
           worker.off('message', workerListener)
         } else {
+          console.log(`SERVICE[${this.messenger}] removing "${messenger}" web worker listener.`)
           worker.removeEventListener('message', workerListener)
         }
       }
