@@ -38,7 +38,6 @@ export class MessagingService {
     this.isInitialized = this.initialize().catch((err) => {
       console.error(`WORKFLOW[???] Failed to initialize WorkflowWorker:`, err)
     })
-    
   }
 
   private async initialize() {
@@ -55,7 +54,7 @@ export class MessagingService {
         } else {
           console.log(`SERVICE[${this.messenger}] is main thread`)
         }
-      } catch(err) {
+      } catch (err) {
         console.error(`SERVICE[${this.messenger}] Failed to load worker_threads:`, err)
       }
     } else if (typeof self !== 'undefined' && self.name) {
@@ -199,7 +198,9 @@ export class MessagingService {
           console.log(
             `SERVICE[${this.messenger}] using parent port to send to "${message.destination}".`
           )
-          destinations.push(this.workerThreads.parentPort.postMessage.bind(this.workerThreads.parentPort))
+          destinations.push(
+            this.workerThreads.parentPort.postMessage.bind(this.workerThreads.parentPort)
+          )
         } else {
           console.error(
             `SERVICE[${this.messenger}] no parent port to send to "${message.destination}".`
@@ -257,7 +258,8 @@ export class MessagingService {
             this.responseHandlers.set(message.id, responseHandler)
 
             console.log(
-              `SERVICE[${this.messenger}] postMessage for request message "${message.destination}".`, destination
+              `SERVICE[${this.messenger}] postMessage for request message "${message.destination}".`,
+              destination
             )
             destination(message)
           }).then((responseMessage) => {
@@ -267,7 +269,8 @@ export class MessagingService {
         } else {
           // If it's not a request, just send the message without expecting a response
           console.log(
-            `SERVICE[${this.messenger}] postMessage for non-request message "${message.destination}".`, destination
+            `SERVICE[${this.messenger}] postMessage for non-request message "${message.destination}".`,
+            destination
           )
           destination(message)
           return Promise.resolve(null)
@@ -278,7 +281,10 @@ export class MessagingService {
       const responses = await Promise.all(sendMessagePromises)
       return responses.find((response) => response !== null) || null
     } else {
-      console.error(`SERVICE[${this.messenger}] unable to find worker "${message.destination}" for message:`, message)
+      console.error(
+        `SERVICE[${this.messenger}] unable to find worker "${message.destination}" for message:`,
+        message
+      )
     }
 
     console.log(`SERVICE[${this.messenger}] default return null for message:`, message)
@@ -352,7 +358,10 @@ export class MessagingService {
         console.log(`SERVICE[${this.messenger}] Forwarding Upstream as worker_threads:`, message)
         this.workerThreads.parentPort?.postMessage(message)
       } else {
-        console.error(`SERVICE[${this.messenger}] No parentPort to postMessage for forward:`, message)
+        console.error(
+          `SERVICE[${this.messenger}] No parentPort to postMessage for forward:`,
+          message
+        )
       }
     } else {
       console.log(`SERVICE[${this.messenger}] Forwarding Upstream as web worker:`, message)

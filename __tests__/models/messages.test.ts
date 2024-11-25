@@ -11,7 +11,7 @@ class ConcreteGeneralMessage extends GeneralMessage<null> {
   }
 
   public setBroadcast(broadcast: boolean) {
-    this._broadcast = broadcast
+    this.broadcast = broadcast
   }
 }
 
@@ -22,7 +22,7 @@ class ConcreteRequestMessage extends RequestMessage<any> {
   }
 
   public setCustomData(customData: string) {
-    this._data = { custom: customData }
+    this.data = { custom: customData }
   }
 }
 
@@ -33,7 +33,7 @@ class ConcreteResponseMessage extends ResponseMessage<any> {
   }
 
   public setRequestId(id: any) {
-    this._requestId = id
+    this.requestId = id
   }
 }
 

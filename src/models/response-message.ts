@@ -20,7 +20,7 @@ export abstract class ResponseMessage<T> extends GeneralMessage<T> {
    *
    * @protected
    */
-  protected _requestId: any
+  public requestId: any
 
   /**
    * Creates an instance of the ResponseMessage.
@@ -36,16 +36,7 @@ export abstract class ResponseMessage<T> extends GeneralMessage<T> {
    */
   constructor(name: string, request: RequestMessage<any>, data?: T) {
     super(name, request.source, data)
-    this._type = MessageType.RESPONSE
-    this._requestId = request.id
-  }
-
-  /**
-   * Returns the ID of the original request message that this response is related to.
-   *
-   * @returns The request ID associated with the original request message.
-   */
-  public get requestId(): any {
-    return this._requestId
+    this.type = MessageType.RESPONSE
+    this.requestId = request.id
   }
 }
