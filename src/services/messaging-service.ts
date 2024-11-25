@@ -163,6 +163,9 @@ export class MessagingService {
     message: GeneralMessage<T>,
     worker?: any
   ): Promise<ResponseMessage<T> | null> {
+    message.source = this.messenger
+    message.id = generateUUID()
+
     console.log(`SERVICE[${this.messenger}] send message received:`, message)
 
     const destinations: ((message: GeneralMessage<T>) => void)[] = []
@@ -199,6 +202,7 @@ export class MessagingService {
       }
     } else {
       console.log(`SERVICE[${this.messenger}] looking worker "${message.destination}".`)
+
       this.workers.forEach((worker, key) => {
         if (message.broadcast) {
           console.log(
@@ -219,9 +223,6 @@ export class MessagingService {
     // If destinations are found, send the message
     if (destinations.length > 0) {
       const sendMessagePromises = destinations.map((destination) => {
-        message.source = this.messenger
-        message.id = generateUUID()
-
         // If the message is a request, setup the response handle
         if (message.type === MessageType.REQUEST) {
           return new Promise<ResponseMessage<T>>((resolve, reject) => {
@@ -263,8 +264,11 @@ export class MessagingService {
       // Await all promises and return the first valid response found
       const responses = await Promise.all(sendMessagePromises)
       return responses.find((response) => response !== null) || null
+    } else {
+      console.error(`SERVICE[${this.messenger}] unable to find worker "${message.destination}" for message:`, message)
     }
 
+    console.log(`SERVICE[${this.messenger}] default return null for message:`, message)
     return null
   }
 
