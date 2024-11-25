@@ -21,6 +21,7 @@ export class MessagingService {
   private responseHandlers: Map<UUIDTypes, (message: ResponseMessage<any>) => void> = new Map()
   private messageReceivedCallback: (message: GeneralMessage<any>) => void
   private workerThreads: typeof import('worker_threads') | undefined = undefined
+  private isInitialized: Promise<void>
 
   /**
    * Creates an instance of the MessagingService.
@@ -34,7 +35,7 @@ export class MessagingService {
     this.messenger = messenger
     this.messageReceivedCallback = messageReceivedCallback
 
-    this.initialize().catch((err) => {
+    this.isInitialized = this.initialize().catch((err) => {
       console.error(`WORKFLOW[???] Failed to initialize WorkflowWorker:`, err)
     })
     
@@ -173,6 +174,8 @@ export class MessagingService {
     message: GeneralMessage<T>,
     worker?: any
   ): Promise<ResponseMessage<T> | null> {
+    await this.isInitialized
+    
     message.source = this.messenger
     message.id = generateUUID()
 
