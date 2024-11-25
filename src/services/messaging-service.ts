@@ -17,7 +17,7 @@ import {
 export class MessagingService {
   private messenger: Messenger
   private workers: Map<string, any> = new Map()
-  private workerListeners: Map<string, (event: MessageEvent) => void> = new Map()
+  private workerListeners: Map<string, (message: any) => void> = new Map()
   private responseHandlers: Map<UUIDTypes, (message: ResponseMessage<any>) => void> = new Map()
   private messageReceivedCallback: (message: GeneralMessage<any>) => void
   private workerThreads: typeof import('worker_threads') | undefined = undefined
@@ -99,23 +99,33 @@ export class MessagingService {
       return
     }
 
-    // Create a listener to handle messages from the worker
-    const workerListener = (event: MessageEvent) => {
-      console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, event)
-      this.handleMessage(event.data as GeneralMessage<any>)
-    }
-
     if (this.workerThreads) {
       console.log(`SERVICE[${this.messenger}] listening to "${messenger}" worker thread.`)
-      worker.on('message', workerListener)
+
+      // Create a listener to handle messages from the worker
+      const workerThreadListener = (message: GeneralMessage<any>) => {
+        console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, message)
+        this.handleMessage(message)
+      }
+
+      worker.on('message', workerThreadListener)
+      this.workerListeners.set(workerKey, workerThreadListener)
     } else {
       console.log(`SERVICE[${this.messenger}] listening to "${messenger}" web worker.`)
+
+      // Create a listener to handle messages from the worker
+      const workerListener = (event: MessageEvent) => {
+        console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, event)
+        console.log(`SERVICE[${this.messenger}] workerListener - message.data from worker:`, event.data)
+        this.handleMessage(event.data as GeneralMessage<any>)
+      }
+
       worker.addEventListener('message', workerListener)
+      this.workerListeners.set(workerKey, workerListener)
     }
 
     // Store the worker and its listener in the service
     this.workers.set(workerKey, worker)
-    this.workerListeners.set(workerKey, workerListener)
     console.log(`SERVICE[${this.messenger}] "${messenger}" worker added.`)
   }
 
