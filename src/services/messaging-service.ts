@@ -34,25 +34,34 @@ export class MessagingService {
     this.messenger = messenger
     this.messageReceivedCallback = messageReceivedCallback
 
+    this.initialize().catch((err) => {
+      console.error(`WORKFLOW[???] Failed to initialize WorkflowWorker:`, err)
+    })
+    
+  }
+
+  private async initialize() {
     // Conditionally import worker_threads for Node.js environments
     if (typeof process !== 'undefined' && process.versions && process.versions.node) {
       console.log(`SERVICE[${this.messenger}] running in node.`)
 
-      import('worker_threads')
-        .then((module) => {
-          this.workerThreads = module
-          if (!this.workerThreads?.isMainThread) {
-            this.setupWorkerThreadListener()
-          } else {
-            console.log(`SERVICE[${this.messenger}] is main thread`)
-          }
-        })
-        .catch((err) => {
-          console.error(`SERVICE[${this.messenger}] Failed to load worker_threads:`, err)
-        })
-    } else {
-      // Browser or Web Worker environment logic
+      try {
+        const workerThreadsModule = await import('worker_threads')
+        this.workerThreads = workerThreadsModule
+
+        if (!this.workerThreads?.isMainThread) {
+          this.setupWorkerThreadListener()
+        } else {
+          console.log(`SERVICE[${this.messenger}] is main thread`)
+        }
+      } catch(err) {
+        console.error(`SERVICE[${this.messenger}] Failed to load worker_threads:`, err)
+      }
+    } else if (typeof self !== 'undefined' && self.name) {
+      console.log(`SERVICE[${this.messenger}] is web worker`)
       this.setupWebWorkerListener()
+    } else {
+      console.error(`SERVICE[${this.messenger}] unknown worker environment.`)
     }
   }
 
