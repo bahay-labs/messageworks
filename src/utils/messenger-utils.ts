@@ -123,6 +123,10 @@ export function messengerIsUpstream(here: Messenger, there: Messenger): boolean 
   console.log(`SERVICE[messengerIsUpstream] from: "${from}" ?? to: "${to}"`)
   console.log(`SERVICE[messengerIsUpstream] fromLevel: "${fromLevel}" ?? toLevel: "${toLevel}"`)
 
+  if (fromLevel === 0) {
+    console.log(`SERVICE[messengerIsUpstream] DOWNSTREAM: "${from}" -> "${to}"`)
+    return false
+  }
   if (toLevel < fromLevel) {
     console.log(`SERVICE[messengerIsUpstream] UPSTREAM: "${toLevel}" < "${fromLevel}"`)
     return true
