@@ -3,7 +3,12 @@ import { MessageType } from '../types/message-type'
 import { Messenger } from '../types/messenger'
 import { GeneralMessage } from '../models/general-message'
 import { ResponseMessage } from '../models/response-message'
-import { messengerAsString, messengersAreEqual, messengerIsUpstream, messengerAsArray } from '../utils'
+import {
+  messengerAsString,
+  messengersAreEqual,
+  messengerIsUpstream,
+  messengerAsArray,
+} from '../utils'
 
 /**
  * A service for handling messaging between different workers and instances.
@@ -82,6 +87,9 @@ export class MessagingService {
             throw new Error(`SERVICE[???] Unknown worker environment.`)
           }
 
+          console.log(
+            `SERVICE[${MessagingService.instance.messenger}] MessagingService initialized.`
+          )
           resolve(MessagingService.instance)
         } catch (err) {
           console.error(`SERVICE[???] Unable to create instance:`, err)
