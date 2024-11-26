@@ -313,6 +313,8 @@ export class MessagingService {
             responseMessage.requestId
           )
         }
+
+        this.responseHandlers.delete(responseMessage.requestId)
       } else {
         this.messageReceivedCallback(message)
       }
