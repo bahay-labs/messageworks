@@ -3,84 +3,110 @@ import { MessageType } from '../types/message-type'
 import { Messenger } from '../types/messenger'
 import { GeneralMessage } from '../models/general-message'
 import { ResponseMessage } from '../models/response-message'
-import {
-  messengerAsString,
-  messengersAreEqual,
-  messengerIsUpstream,
-  isWorkerThreads,
-} from '../utils'
+import { messengerAsString, messengersAreEqual, messengerIsUpstream } from '../utils'
 
 /**
  * A service for handling messaging between different workers and instances.
  * It provides functionality to send messages, handle responses, and manage workers.
  */
 export class MessagingService {
+  private static instance: MessagingService | null = null
+  private static instancePromise: Promise<MessagingService> | null = null
+
+  private workerThreads: typeof import('worker_threads') | undefined = undefined
+
   private messenger: Messenger
+  public messageReceivedCallback: (message: GeneralMessage<any>) => void = (
+    message: GeneralMessage<any>
+  ) => {}
+
   private workers: Map<string, any> = new Map()
   private workerListeners: Map<string, (message: any) => void> = new Map()
+
   private responseHandlers: Map<UUIDTypes, (message: ResponseMessage<any>) => void> = new Map()
-  private messageReceivedCallback: (message: GeneralMessage<any>) => void
-  private workerThreads: typeof import('worker_threads') | undefined = undefined
-  private isInitialized: Promise<void>
 
   /**
    * Creates an instance of the MessagingService.
    * @param {Messenger} messenger The messenger identifier for this instance.
    * @param {Function} messageReceivedCallback Callback function to handle received messages.
    */
-  constructor(
-    messenger: Messenger,
-    messageReceivedCallback: (message: GeneralMessage<any>) => void
-  ) {
+  private constructor(messenger: Messenger) {
     this.messenger = messenger
-    this.messageReceivedCallback = messageReceivedCallback
-
-    this.isInitialized = this.initialize().catch((err) => {
-      console.error(`WORKFLOW[???] Failed to initialize WorkflowWorker:`, err)
-    })
   }
 
-  private async initialize() {
-    // Conditionally import worker_threads for Node.js environments
-    if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-      console.log(`SERVICE[${this.messenger}] running in node.`)
+  public static async getInstance(): Promise<MessagingService> {
+    if (!MessagingService.instance) {
+      MessagingService.instancePromise = new Promise(async (resolve, reject) => {
+        try {
+          if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+            try {
+              const workerThreadsModule = await import('worker_threads')
+              const { isMainThread, workerData } = workerThreadsModule
 
-      try {
-        const workerThreadsModule = await import('worker_threads')
-        this.workerThreads = workerThreadsModule
+              let messenger: Messenger = ''
 
-        if (!this.workerThreads?.isMainThread) {
-          this.setupWorkerThreadListener()
-        } else {
-          console.log(`SERVICE[${this.messenger}] is main thread`)
+              if (!isMainThread) {
+                console.log(`SERVICE[${workerData.name}] Using workerData.name for messenger.`)
+                messenger = workerData.name
+              }
+
+              MessagingService.instance = new MessagingService(messenger)
+              MessagingService.instance.workerThreads = workerThreadsModule
+
+              if (!isMainThread) {
+                MessagingService.instance.setupWorkerThreadListener()
+              }
+
+              console.log(`SERVICE[${messenger}] Is Worker Threads.`)
+            } catch (err) {
+              console.error(`SERVICE[???] Failed to import worker_threads:`, err)
+              throw err
+            }
+          } else if (typeof self !== 'undefined') {
+            let messenger: Messenger = ''
+
+            if (typeof window === 'undefined') {
+              console.log(`SERVICE[${self.name}] Using self.name for messenger.`)
+              messenger = self.name
+            }
+
+            MessagingService.instance = new MessagingService(messenger)
+
+            if (typeof window === 'undefined') {
+              MessagingService.instance.setupWebWorkerListener()
+            }
+
+            console.log(`SERVICE[${messenger}] Is Web Worker.`)
+          } else {
+            throw new Error(`SERVICE[???] Unknown worker environment.`)
+          }
+
+          resolve(MessagingService.instance)
+        } catch (err) {
+          console.error(`SERVICE[???] Unable to create instance:`, err)
+          reject(err)
         }
-      } catch (err) {
-        console.error(`SERVICE[${this.messenger}] Failed to load worker_threads:`, err)
-      }
-    } else if (typeof self !== 'undefined' && self.name) {
-      console.log(`SERVICE[${this.messenger}] is web worker`)
-      this.setupWebWorkerListener()
-    } else {
-      console.error(`SERVICE[${this.messenger}] unknown worker environment.`)
+      })
     }
+
+    return MessagingService.instancePromise!
   }
 
   private setupWorkerThreadListener() {
-    console.log(`SERVICE[${this.messenger}] setupWorkerThreadListener`)
+    console.log(`SERVICE[${this.messenger}] Setting up Worker Thread Listener.`)
     if (this.workerThreads) {
-      const { parentPort } = this.workerThreads
-      parentPort?.on('message', (message) => {
-        console.log(`SERVICE[${this.messenger}] worker listener message:`, message)
-        this.handleMessage(message as GeneralMessage<any>)
-      })
+      if (!this.workerThreads.isMainThread) {
+        this.workerThreads.parentPort?.on('message', (message) => {
+          this.handleMessage(message as GeneralMessage<any>)
+        })
+      }
     }
   }
 
   private setupWebWorkerListener() {
-    console.log(`SERVICE[${this.messenger}] setupWebWorkerListener`)
+    console.log(`SERVICE[${this.messenger}] Setting up Web Worker Listener.`)
     if (typeof self !== 'undefined' && self.addEventListener) {
       self.addEventListener('message', (event) => {
-        console.log(`SERVICE[${this.messenger}] worker listener message:`, event.data)
         this.handleMessage(event.data as GeneralMessage<any>)
       })
     }
@@ -91,70 +117,55 @@ export class MessagingService {
    * @param {Messenger} messenger The messenger identifier for the worker.
    * @param {Worker} worker The worker to be added.
    */
-  public async addWorker(messenger: Messenger, worker: any) {
-    const workerKey = messengerAsString(messenger)
-
+  public addWorker(name: string, worker: any) {
     // If the worker or messenger is invalid, return early
-    if (!messenger || !worker || !workerKey) {
+    if (!name || !worker) {
+      console.error(`SERVICE[${this.messenger}] Unable to add worker "${name}".`)
       return
     }
 
-    if (this.workerThreads) {
-      console.log(`SERVICE[${this.messenger}] listening to "${messenger}" worker thread.`)
+    const workerKey = this.getWorkerKey(name)
 
-      // Create a listener to handle messages from the worker
-      const workerThreadListener = (message: GeneralMessage<any>) => {
-        console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, message)
+    if (this.workerThreads) {
+      const workerListener = (message: GeneralMessage<any>) => {
+        console.log(`SERVICE[${this.messenger}] Message received from worker:`, message)
         this.handleMessage(message)
       }
-
-      worker.on('message', workerThreadListener)
-      this.workerListeners.set(workerKey, workerThreadListener)
+      worker.on('message', workerListener)
+      this.workerListeners.set(workerKey, workerListener)
     } else {
-      console.log(`SERVICE[${this.messenger}] listening to "${messenger}" web worker.`)
-
-      // Create a listener to handle messages from the worker
       const workerListener = (event: MessageEvent) => {
-        console.log(`SERVICE[${this.messenger}] workerListener - message from worker:`, event)
-        console.log(`SERVICE[${this.messenger}] workerListener - message.data from worker:`, event.data)
+        console.log(`SERVICE[${this.messenger}] Message received from worker:`, event.data)
         this.handleMessage(event.data as GeneralMessage<any>)
       }
-
       worker.addEventListener('message', workerListener)
       this.workerListeners.set(workerKey, workerListener)
     }
 
-    // Store the worker and its listener in the service
     this.workers.set(workerKey, worker)
-    console.log(`SERVICE[${this.messenger}] "${messenger}" worker added.`)
+
+    console.log(`SERVICE[${this.messenger}] Added worker "${name}".`)
   }
 
   /**
    * Removes a worker from the service and cleans up associated resources.
    * @param {Worker} worker The worker to be removed.
    */
-  public removeWorker(messenger: Messenger): void {
-    const workerKey = messengerAsString(messenger)
+  public removeWorker(name: string): void {
+    const workerKey = this.getWorkerKey(name)
+    const worker = this.workers.get(workerKey)
+    const workerListener = this.workerListeners.get(workerKey)
 
-    if (workerKey) {
-      const worker = this.workers.get(workerKey)
-      const workerListener = this.workerListeners.get(workerKey)
-
-      // Remove the worker's message listener if it exists
-      if (workerListener) {
-        if (this.workerThreads) {
-          console.log(`SERVICE[${this.messenger}] removing "${messenger}" worker thread listener.`)
-          worker.off('message', workerListener)
-        } else {
-          console.log(`SERVICE[${this.messenger}] removing "${messenger}" web worker listener.`)
-          worker.removeEventListener('message', workerListener)
-        }
+    if (workerListener) {
+      if (this.workerThreads) {
+        worker.off('message', workerListener)
+      } else {
+        worker.removeEventListener('message', workerListener)
       }
 
-      // Clean up the worker from the internal maps
       this.workerListeners.delete(workerKey)
       this.workers.delete(workerKey)
-      console.log(`SERVICE[${this.messenger}] "${messenger}" worker removed.`)
+      console.log(`SERVICE[${this.messenger}] Removed worker "${name}".`)
     }
   }
 
@@ -162,14 +173,9 @@ export class MessagingService {
    * Cleans up all workers, listeners, and response handlers.
    */
   public cleanUp(): void {
-    // Remove all workers
     this.workers.forEach((worker, key) => this.removeWorker(key))
-
-    // Clear internal maps
     this.workerListeners.clear()
     this.responseHandlers.clear()
-
-    // Reset the message received callback
     this.messageReceivedCallback = () => {}
   }
 
@@ -183,105 +189,80 @@ export class MessagingService {
     message: GeneralMessage<T>,
     worker?: any
   ): Promise<ResponseMessage<T> | null> {
-    await this.isInitialized
-
     message.source = this.messenger
     message.id = generateUUID()
 
-    console.log(`SERVICE[${this.messenger}] send message received:`, message)
-
     const destinations: ((message: GeneralMessage<T>) => void)[] = []
 
-    // Determine where to send the message (worker, upstream, or other workers)
     if (worker) {
       console.log(
-        `SERVICE[${this.messenger}] sending message directly to worker "${message.destination}".`
+        `SERVICE[${this.messenger}] Sending message directly to worker "${message.destination}".`
       )
       destinations.push(worker.postMessage.bind(worker))
     } else if (messengerIsUpstream(this.messenger, message.destination)) {
       console.log(
-        `SERVICE[${this.messenger}] sending message upstream to "${message.destination}":`,
-        message
+        `SERVICE[${this.messenger}] Sending message upstream to "${message.destination}".`
       )
       if (this.workerThreads) {
         if (this.workerThreads.parentPort) {
           console.log(
-            `SERVICE[${this.messenger}] using parent port to send to "${message.destination}".`
+            `SERVICE[${this.messenger}] Using parentPort to send to "${message.destination}".`
           )
           destinations.push(
             this.workerThreads.parentPort.postMessage.bind(this.workerThreads.parentPort)
           )
         } else {
           console.error(
-            `SERVICE[${this.messenger}] no parent port to send to "${message.destination}".`
+            `SERVICE[${this.messenger}] No parentPort to send to "${message.destination}".`
           )
         }
       } else if (typeof self !== 'undefined' && self) {
-        console.log(`SERVICE[${this.messenger}] using self to send to "${message.destination}".`)
+        console.log(`SERVICE[${this.messenger}] Using self to send to "${message.destination}".`)
         destinations.push(self.postMessage.bind(self))
       } else {
         console.error(
-          `SERVICE[${this.messenger}] no postMessage available to send to "${message.destination}".`
+          `SERVICE[${this.messenger}] No postMessage available to send to "${message.destination}".`
         )
       }
     } else {
-      console.log(`SERVICE[${this.messenger}] looking for worker "${message.destination}".`)
-
+      console.log(
+        `SERVICE[${this.messenger}] Sending message downstream to "${message.destination}".`
+      )
       this.workers.forEach((worker, key) => {
         if (message.broadcast) {
-          console.log(
-            `SERVICE[${this.messenger}] broadcasting message to worker "${message.destination}".`
-          )
+          console.log(`SERVICE[${this.messenger}] Broadcasting message to worker "${key}".`)
           destinations.push(worker.postMessage.bind(worker))
         } else {
           if (messengersAreEqual(message.destination, key)) {
-            console.log(
-              `SERVICE[${this.messenger}] sending message directly to worker "${message.destination}".`
-            )
+            console.log(`SERVICE[${this.messenger}] Sending message directly to worker "${key}".`)
             destinations.push(worker.postMessage.bind(worker))
           }
         }
       })
     }
 
-    // If destinations are found, send the message
     if (destinations.length > 0) {
       const sendMessagePromises = destinations.map((destination) => {
         // If the message is a request, setup the response handle
         if (message.type === MessageType.REQUEST) {
           return new Promise<ResponseMessage<T>>((resolve, reject) => {
             const responseHandler = (responseMessage: ResponseMessage<T>) => {
-              console.log(
-                `SERVICE[${this.messenger}] responseHandler responseMessage:`,
-                responseMessage
-              )
+              console.log(`SERVICE[${this.messenger}] Response message received:`, responseMessage)
               // Resolve the promise with the correct response message
               if (responseMessage.requestId === message.id) {
                 this.responseHandlers.delete(responseMessage.requestId)
-                console.log(`SERVICE[${this.messenger}] responseHandler resolving`)
                 resolve(responseMessage)
-              } else {
-                console.log(`SERVICE[${this.messenger}] responseHandler NOT RESOLVED`)
               }
             }
 
             this.responseHandlers.set(message.id, responseHandler)
 
-            console.log(
-              `SERVICE[${this.messenger}] postMessage for request message "${message.destination}".`,
-              destination
-            )
             destination(message)
           }).then((responseMessage) => {
-            console.log(`SERVICE[${this.messenger}] responseHandler then:`, responseMessage)
             return responseMessage
           })
         } else {
           // If it's not a request, just send the message without expecting a response
-          console.log(
-            `SERVICE[${this.messenger}] postMessage for non-request message "${message.destination}".`,
-            destination
-          )
           destination(message)
           return Promise.resolve(null)
         }
@@ -292,12 +273,11 @@ export class MessagingService {
       return responses.find((response) => response !== null) || null
     } else {
       console.error(
-        `SERVICE[${this.messenger}] unable to find worker "${message.destination}" for message:`,
+        `SERVICE[${this.messenger}] Unable to find worker "${message.destination}" for message:`,
         message
       )
     }
 
-    console.log(`SERVICE[${this.messenger}] default return null for message:`, message)
     return null
   }
 
@@ -306,38 +286,29 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to handle.
    */
   private handleMessage(message: GeneralMessage<any>) {
-    console.log(`SERVICE[${this.messenger}] handleMessage message:`, message)
-    console.log(`SERVICE[${this.messenger}] message.broadcast:`, message.broadcast)
-    console.log(
-      `SERVICE[${this.messenger}] areEqual():`,
-      messengersAreEqual(message.destination, this.messenger)
-    )
-    console.log(`SERVICE[${this.messenger}] isResponse?:`, message.type === MessageType.RESPONSE)
-
+    // TODO: Broadcast Message Handling
     if (message.broadcast || messengersAreEqual(message.destination, this.messenger)) {
-      console.log(`SERVICE[${this.messenger}] isBroadcast or intended destination:`, message)
-      // Handle broadcast or message for this instance
       if (message.type === MessageType.RESPONSE) {
-        const responseHandler = this.responseHandlers.get(
-          (message as ResponseMessage<any>).requestId
-        )
+        const responseMessage = message as ResponseMessage<any>
+        const responseHandler = this.responseHandlers.get(responseMessage.requestId)
+
         if (responseHandler) {
           console.log(
-            `SERVICE[${this.messenger}] calling responseHandler requestId[${
-              (message as ResponseMessage<any>).requestId
-            }].`
+            `SERVICE[${this.messenger}] Calling response handler for requestId:`,
+            responseMessage.requestId
           )
-          responseHandler(message as ResponseMessage<any>)
+          responseHandler(responseMessage)
         } else {
-          console.log(`SERVICE[${this.messenger}] responseHandler is not truthful.`)
+          console.log(
+            `SERVICE[${this.messenger}] No response handler for requestId:`,
+            responseMessage.requestId
+          )
         }
       } else {
-        console.log(`SERVICE[${this.messenger}] NOT A Response:`, message)
         this.messageReceivedCallback(message)
       }
     } else {
-      // Forward the message if it isn't for this instance
-      console.log(`SERVICE[${this.messenger}] Forwarding:`, message)
+      console.log(`SERVICE[${this.messenger}] Forwarding message:`, message)
       this.forwardMessage(message)
     }
   }
@@ -347,14 +318,18 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to forward.
    */
   private forwardMessage(message: GeneralMessage<any>) {
-    if (message.destination) {
-      if (messengerIsUpstream(this.messenger, message.destination)) {
-        console.log(`SERVICE[${this.messenger}] forwarding upstream:`, message)
-        this.forwardUpstream(message)
-      } else {
-        console.log(`SERVICE[${this.messenger}] forwarding downstream:`, message)
-        this.forwardDownstream(message)
-      }
+    if (messengerIsUpstream(this.messenger, message.destination)) {
+      console.log(`SERVICE[${this.messenger}] Forwarding message upstream:`, message)
+      this.forwardUpstream(message)
+    } else if (messengersAreEqual(this.messenger, message.destination)) {
+      console.log(
+        `SERVICE[${this.messenger}] Forwarding message to message received callback:`,
+        message
+      )
+      this.messageReceivedCallback(message)
+    } else {
+      console.log(`SERVICE[${this.messenger}] Forwarding message downstream:`, message)
+      this.forwardDownstream(message)
     }
   }
 
@@ -365,16 +340,16 @@ export class MessagingService {
   private forwardUpstream(message: GeneralMessage<any>) {
     if (this.workerThreads) {
       if (this.workerThreads.parentPort) {
-        console.log(`SERVICE[${this.messenger}] Forwarding Upstream as worker_threads:`, message)
+        console.log(`SERVICE[${this.messenger}] Forwarding upstream as worker_threads.`)
         this.workerThreads.parentPort?.postMessage(message)
       } else {
         console.error(
-          `SERVICE[${this.messenger}] No parentPort to postMessage for forward:`,
+          `SERVICE[${this.messenger}] No upstream parentPort to forward message:`,
           message
         )
       }
     } else {
-      console.log(`SERVICE[${this.messenger}] Forwarding Upstream as web worker:`, message)
+      console.log(`SERVICE[${this.messenger}] Forwarding upstream as web worker.`)
       self.postMessage(message)
     }
   }
@@ -386,9 +361,13 @@ export class MessagingService {
   private forwardDownstream(message: GeneralMessage<any>) {
     this.workers.forEach((worker, key) => {
       if (messengersAreEqual(message.destination, key)) {
-        console.log(`SERVICE[${this.messenger}] Forwarding Downstream to worker "${key}":`, message)
+        console.log(`SERVICE[${this.messenger}] Forwarding downstream to worker "${key}".`)
         worker.postMessage(message)
       }
     })
+  }
+
+  private getWorkerKey(name: string) {
+    return `${messengerAsString(this.messenger)}/${name}`
   }
 }
