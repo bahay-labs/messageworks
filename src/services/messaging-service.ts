@@ -3,7 +3,7 @@ import { MessageType } from '../types/message-type'
 import { Messenger } from '../types/messenger'
 import { GeneralMessage } from '../models/general-message'
 import { ResponseMessage } from '../models/response-message'
-import { messengerAsString, messengersAreEqual, messengerIsUpstream } from '../utils'
+import { messengerAsString, messengersAreEqual, messengerIsUpstream, messengerAsArray } from '../utils'
 
 /**
  * A service for handling messaging between different workers and instances.
@@ -43,7 +43,7 @@ export class MessagingService {
               const workerThreadsModule = await import('worker_threads')
               const { isMainThread, workerData } = workerThreadsModule
 
-              let messenger: Messenger = ''
+              let messenger: Messenger = '/'
 
               if (!isMainThread) {
                 console.log(`SERVICE[${workerData.name}] Using workerData.name for messenger.`)
@@ -63,7 +63,7 @@ export class MessagingService {
               throw err
             }
           } else if (typeof self !== 'undefined') {
-            let messenger: Messenger = ''
+            let messenger: Messenger = '/'
 
             if (typeof window === 'undefined') {
               console.log(`SERVICE[${self.name}] Using self.name for messenger.`)
@@ -78,6 +78,7 @@ export class MessagingService {
 
             console.log(`SERVICE[${messenger}] Is Web Worker.`)
           } else {
+            console.error(`SERVICE[???] Unknown worker environment.`)
             throw new Error(`SERVICE[???] Unknown worker environment.`)
           }
 
@@ -368,6 +369,8 @@ export class MessagingService {
   }
 
   private getWorkerKey(name: string) {
-    return `${messengerAsString(this.messenger)}/${name}`
+    const workerMessenger = messengerAsArray(this.messenger)
+    workerMessenger.push(name)
+    return messengerAsString(workerMessenger)
   }
 }
