@@ -21,6 +21,6 @@ export abstract class RequestMessage<T> extends GeneralMessage<T> {
    */
   constructor(name: string, destination: Messenger, data?: T) {
     super(name, destination, data)
-    this._type = MessageType.REQUEST
+    this.type = MessageType.REQUEST
   }
 }

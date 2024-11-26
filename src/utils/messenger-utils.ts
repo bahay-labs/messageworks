@@ -120,15 +120,30 @@ export function messengerIsUpstream(here: Messenger, there: Messenger): boolean 
   const to = messengerAsArray(there)
   const toLevel = to.length
 
+  console.log(`SERVICE[messengerIsUpstream] from: "${from}" ?? to: "${to}"`)
+  console.log(`SERVICE[messengerIsUpstream] fromLevel: "${fromLevel}" ?? toLevel: "${toLevel}"`)
+
+  if (fromLevel === 0) {
+    console.log(`SERVICE[messengerIsUpstream] DOWNSTREAM: "${from}" -> "${to}"`)
+    return false
+  }
   if (toLevel < fromLevel) {
+    console.log(`SERVICE[messengerIsUpstream] UPSTREAM: "${toLevel}" < "${fromLevel}"`)
     return true
   }
 
   for (let i = 0; i < fromLevel; i++) {
     if (from[i] !== to[i]) {
+      console.log(`SERVICE[messengerIsUpstream] UPSTREAM: "${from[i]}" !== "${to[i]}"`)
       return true
     }
   }
 
+  if (fromLevel === toLevel) {
+    console.log(`SERVICE[messengerIsUpstream] EQUAL: "${from}" === "${to}"`)
+    return false
+  }
+
+  console.log(`SERVICE[messengerIsUpstream] DOWNSTREAM: "${from}" -> "${to}"`)
   return false
 }

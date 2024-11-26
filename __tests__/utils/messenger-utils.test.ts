@@ -11,6 +11,9 @@ describe('Messenger Utils', () => {
   describe('asArray', () => {
     it('should convert string to array', () => {
       expect(messengerAsArray('earth/continent/country')).toEqual(['earth', 'continent', 'country'])
+      expect(messengerAsArray('/earth/continent/country')).toEqual(['earth', 'continent', 'country'])
+      expect(messengerAsArray('earth/continent/country/')).toEqual(['earth', 'continent', 'country'])
+      expect(messengerAsArray('/earth/continent/country/')).toEqual(['earth', 'continent', 'country'])
     })
 
     it('should return array as is', () => {
@@ -31,6 +34,11 @@ describe('Messenger Utils', () => {
 
     it('should handle empty string input', () => {
       expect(messengerAsArray('')).toEqual([])
+      expect(messengerAsArray('/')).toEqual([])
+    })
+
+    it('should handle empty array input', () => {
+      expect(messengerAsString([])).toEqual('/')
     })
 
     it('should handle null input gracefully', () => {
@@ -166,7 +174,7 @@ describe('Messenger Utils', () => {
       expect(messengerIsUpstream(here, there)).toBe(true)
     })
 
-    it('should return false if "there" and "here" are the same', () => {
+    it('should return true if "there" and "here" are the same', () => {
       const here: Messenger = ['workflow1', 'step1']
       const there: Messenger = ['workflow1', 'step1']
 
