@@ -194,10 +194,10 @@ export class MessagingService {
    * @param {Worker} [worker] Optionally specify a specific worker to send the message to.
    * @returns {Promise<ResponseMessage<T> | null>} A promise that resolves with the response message, or null if no response is expected.
    */
-  public async sendMessage<T>(
+  public async sendMessage<T, V>(
     message: GeneralMessage<T>,
     worker?: any
-  ): Promise<ResponseMessage<T> | null> {
+  ): Promise<ResponseMessage<V> | null> {
     message.source = this.messenger
     message.id = generateUUID()
 
@@ -254,8 +254,8 @@ export class MessagingService {
       const sendMessagePromises = destinations.map((destination) => {
         // If the message is a request, setup the response handle
         if (message.type === MessageType.REQUEST) {
-          return new Promise<ResponseMessage<T>>((resolve, reject) => {
-            const responseHandler = (responseMessage: ResponseMessage<T>) => {
+          return new Promise<ResponseMessage<V>>((resolve, reject) => {
+            const responseHandler = (responseMessage: ResponseMessage<V>) => {
               console.log(`SERVICE[${this.messenger}] Response message received:`, responseMessage)
               // Resolve the promise with the correct response message
               if (responseMessage.requestId === message.id) {

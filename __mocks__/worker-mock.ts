@@ -30,6 +30,8 @@ export class WorkerMock {
       onerror: null,
       testVar: null,
       terminated: false,
+      window: {},
+      self: { name: options?.name },
       postMessage: (data: any) => {
         console.log('[WORKER-INSIDE] Post Message to Outside - data: ', data)
         // worker thread calls postMessage -> calls mainThreadEmitter('message')
@@ -37,6 +39,14 @@ export class WorkerMock {
       },
       addEventListener: (type: string, callback: EventListener) => {
         console.log('[WORKER-INSIDE] Add Inside Event Listener')
+        if (type === 'message') {
+          this.insideMessageListeners.push(callback as (event: MessageEvent) => void)
+        } else if (type === 'error') {
+          this.insideErrorListeners.push(callback as (event: ErrorEvent) => void)
+        }
+      },
+      on: (type: string, callback: EventListener) => {
+        console.log('[WORKER-INSIDE] Inside ON Event Listener')
         if (type === 'message') {
           this.insideMessageListeners.push(callback as (event: MessageEvent) => void)
         } else if (type === 'error') {
@@ -166,6 +176,16 @@ export class WorkerMock {
   // Add event listener for message events
   addEventListener(type: string, callback: EventListener) {
     console.log('[WORKER-OUTSIDE] Add Outside Event Listener')
+    if (type === 'message') {
+      this.outsideMessageListeners.push(callback as (event: MessageEvent) => void)
+    } else if (type === 'error') {
+      this.outsideErrorListeners.push(callback as (event: ErrorEvent) => void)
+    }
+  }
+  
+  // Add event listener for message events
+  on(type: string, callback: EventListener) {
+    console.log('[WORKER-OUTSIDE] Outside ON Event Listener')
     if (type === 'message') {
       this.outsideMessageListeners.push(callback as (event: MessageEvent) => void)
     } else if (type === 'error') {
