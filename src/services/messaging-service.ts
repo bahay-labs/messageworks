@@ -370,9 +370,15 @@ export class MessagingService {
    * @param {GeneralMessage<any>} message The message to forward downstream.
    */
   private forwardDownstream(message: GeneralMessage<any>) {
+    const here = messengerAsArray(this.messenger)
+    const next = messengerAsArray(message.destination).slice(0, here.length + 1)
+
     this.workers.forEach((worker, key) => {
       if (messengersAreEqual(message.destination, key)) {
         console.log(`SERVICE[${this.messenger}] Forwarding downstream to worker "${key}".`)
+        worker.postMessage(message)
+      } else if (messengersAreEqual(next, key)) {
+        console.log(`SERVICE[${this.messenger}] Forwarding downstream to next worker "${key}".`)
         worker.postMessage(message)
       }
     })
