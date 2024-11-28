@@ -271,6 +271,7 @@ export class MessagingService {
             }
 
             this.responseHandlers.set(message.id, responseHandler)
+            console.error(`SERVICE[${this.messenger}] responseHandlers.size:`, this.responseHandlers.size)
 
             destination(message)
           }).then((responseMessage) => {
