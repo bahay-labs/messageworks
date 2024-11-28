@@ -271,7 +271,7 @@ export class MessagingService {
             }
 
             this.responseHandlers.set(message.id, responseHandler)
-            console.error(`SERVICE[${this.messenger}] responseHandlers.size:`, this.responseHandlers.size)
+            console.error(`SERVICE[${this.messenger}] Available memory:`, process.availableMemory())
 
             destination(message)
           }).then((responseMessage) => {
