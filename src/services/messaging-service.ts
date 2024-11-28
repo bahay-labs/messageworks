@@ -237,6 +237,9 @@ export class MessagingService {
       console.log(
         `SERVICE[${this.messenger}] Sending message downstream to "${message.destination}".`
       )
+      const here = messengerAsArray(this.messenger)
+      const there = messengerAsArray(message.destination)
+      const nextHop = there.slice(0, here.length + 1)
       this.workers.forEach((worker, key) => {
         if (message.broadcast) {
           console.log(`SERVICE[${this.messenger}] Broadcasting message to worker "${key}".`)
@@ -244,6 +247,9 @@ export class MessagingService {
         } else {
           if (messengersAreEqual(message.destination, key)) {
             console.log(`SERVICE[${this.messenger}] Sending message directly to worker "${key}".`)
+            destinations.push(worker.postMessage.bind(worker))
+          } else if (messengersAreEqual(nextHop, key)) {
+            console.log(`SERVICE[${this.messenger}] Sending message indirectly to worker "${key}" through next hop "${messengerAsString(nextHop)}".`)
             destinations.push(worker.postMessage.bind(worker))
           }
         }
