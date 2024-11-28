@@ -203,6 +203,8 @@ export class MessagingService {
 
     const destinations: ((message: GeneralMessage<T>) => void)[] = []
 
+    console.log(`SERVICE[${this.messenger}] Available memory:`, process.availableMemory())
+
     if (worker) {
       console.log(
         `SERVICE[${this.messenger}] Sending message directly to worker "${message.destination}".`
@@ -271,7 +273,6 @@ export class MessagingService {
             }
 
             this.responseHandlers.set(message.id, responseHandler)
-            console.error(`SERVICE[${this.messenger}] Available memory:`, process.availableMemory())
 
             destination(message)
           }).then((responseMessage) => {
